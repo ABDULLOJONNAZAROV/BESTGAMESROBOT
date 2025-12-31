@@ -1,0 +1,208 @@
+html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Car Racing Game</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #333; }
+        canvas { display: block; }
+        #instructions {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        #scoreDisplay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 5px 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">
+        Идоракунӣ: <br>
+        Тирчаҳои чап/рост барои ҳаракат. <br>
+        Тирчаи боло/поён барои суръат/тормоз.
+    </div>
+    <div id="scoreDisplay">Score: 0</div>
+
+    <!-- Китобхонаи Three.js-ро ворид мекунем -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // Setup scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Track and road
+        const trackGeometry = new THREE.PlaneGeometry(200, 10000); // long track
+        const trackMaterial = new THREE.MeshLambertMaterial({ color: 0x555555, side: THREE.DoubleSide });
+        const track = new THREE.Mesh(trackGeometry, trackMaterial);
+        track.rotation.x = -Math.PI / 2; // Lay flat
+        track.position.y = -0.5;
+        track.position.z = -4990; // center the long track
+        scene.add(track);
+
+        // Road lines
+        function createRoadLine(x, z) {
+            const lineGeometry = new THREE.PlaneGeometry(1, 10);
+            const lineMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const line = new THREE.Mesh(lineGeometry, lineMaterial);
+            line.rotation.x = -Math.PI / 2;
+            line.position.set(x, 0.1, z); // Slightly above track to avoid z-fighting
+            return line;
+        }
+
+        const roadLines = [];
+        for (let i = 0; i < 500; i++) { // 500 lines for the road
+            const line1 = createRoadLine(-5, -5000 + i * 20);
+            const line2 = createRoadLine(5, -5000 + i * 20);
+            roadLines.push(line1, line2);
+            scene.add(line1, line2);
+        }
+
+        // Car
+        const carGeometry = new THREE.BoxGeometry(2, 1, 3); // width, height, length
+        const carMaterial = new THREE.MeshLambertMaterial({ color: 0x0077ff });
+        const car = new THREE.Mesh(carGeometry, carMaterial);
+        car.position.set(0, 0, 0); // Start at (0,0,0) relative to camera
+        scene.add(car);
+
+        // Obstacles
+        const obstacles = [];
+        const obstacleMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+        function addObstacle() {
+            const obstacleGeometry = new THREE.BoxGeometry(2, 2, 2);
+            const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+            obstacle.position.set((Math.random() - 0.5) * 10, 0, -Math.random() * 500 - 50); // random x, far z
+            obstacles.push(obstacle);
+            scene.add(obstacle);
+        }
+
+        for (let i = 0; i < 20; i++) { // Initial 20 obstacles
+            addObstacle();
+        }
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040); // Soft white light
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(0, 10, 5);
+        scene.add(directionalLight);
+
+        // Camera position
+        camera.position.set(0, 5, 10);
+        camera.lookAt(car.position);
+
+        // Game state
+        let carSpeed = 0; // units per frame
+        let maxSpeed = 0.5;
+        let acceleration = 0.01;
+        let braking = 0.02;
+        let deceleration = 0.005; // natural slowdown
+        let turnSpeed = 0.1;
+
+        let leftPressed = false;
+        let rightPressed = false;
+        let upPressed = false;
+        let downPressed = false;
+
+        let score = 0;
+        const scoreDisplay = document.getElementById('scoreDisplay');
+
+        // Event Listeners for controls
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'ArrowLeft') leftPressed = true;
+            if (event.code === 'ArrowRight') rightPressed = true;
+            if (event.code === 'ArrowUp') upPressed = true;
+            if (event.code === 'ArrowDown') downPressed = true;
+        });
+
+        document.addEventListener('keyup', (event) => {
+            if (event.code === 'ArrowLeft') leftPressed = false;
+            if (event.code === 'ArrowRight') rightPressed = false;
+            if (event.code === 'ArrowUp') upPressed = false;
+            if (event.code === 'ArrowDown') downPressed = false;
+        });
+
+        // Game Loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Car movement
+            if (upPressed) carSpeed = Math.min(carSpeed + acceleration, maxSpeed);
+            else if (downPressed) carSpeed = Math.max(carSpeed - braking, -maxSpeed / 2); // Can reverse
+            else carSpeed = Math.max(0, carSpeed - deceleration); // Natural deceleration
+
+            if (leftPressed && car.position.x > -8) car.position.x -= turnSpeed;
+            if (rightPressed && car.position.x < 8) car.position.x += turnSpeed;
+
+            // Move everything towards the camera (simulating car moving forward)
+            scene.position.z += carSpeed;
+
+            // Loop track and road lines
+            if (scene.position.z > 1000) { // arbitrary reset point
+                scene.position.z = 0; // Reset scene position
+            }
+
+            // Obstacle logic
+            for (let i = 0; i < obstacles.length; i++) {
+                const obstacle = obstacles[i];
+                obstacle.position.z += carSpeed; // Move obstacles with the scene
+
+                // If obstacle is behind the camera, reset it
+                if (obstacle.position.z > camera.position.z + 10) {
+                    obstacle.position.set((Math.random() - 0.5) * 10, 0, -Math.random() * 500 - 50); // new random position
+                    score += 10; // score for passing an obstacle
+                    scoreDisplay.innerText = `Score: ${score}`;
+                }
+
+                // Collision detection (simple AABB)
+                const carBox = new THREE.Box3().setFromObject(car);
+                const obstacleBox = new THREE.Box3().setFromObject(obstacle);
+
+                if (carBox.intersectsBox(obstacleBox)) {
+                    // Collision! Restart game
+                    alert(`БОЗӢ ТАМОМ ШУД! Холи шумо: ${score}`);
+                    location.reload(); // Reload the page
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initialize game with instructions visible
+        window.onload = () => {
+            document.getElementById('instructions').style.display = 'block';
+        };
+
+    </script>
+</body>
+</html>
