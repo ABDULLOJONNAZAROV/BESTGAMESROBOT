@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flappy Bird - Telegram Game</title>
+    <style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: linear-gradient(to bottom, #87ceeb, #e0f6ff); overflow: hidden; font-family: 'Press Start 2P', cursive; }
+        canvas { border: 5px solid #4a2c2c; background: #71c5cf; }
+        #scoreDisplay { position: absolute; top: 20px; color: white; font-size: 24px; text-shadow: 2px 2px 0 #000; z-index: 10; }
+        #startButton { position: absolute; padding: 15px 30px; font-size: 28px; background-color: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 5px 0 #3e8e41; transition: background-color 0.1s; z-index: 10; }
+        #startButton:hover { background-color: #45a049; }
+        #startButton:active { background-color: #3e8e41; box-shadow: 0 2px 0 #3e8e41; transform: translateY(3px); }
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap'); /* Барои шрифти бозӣ */
+    </style>
+</head>
+<body>
+    <div id="scoreDisplay">Score: <span id="currentScore">0</span></div>
+    <canvas id="flappyCanvas" width="288" height="512"></canvas>
+    <button id="startButton">START GAME</button>
+
+    <script>
+        const canvas = document.getElementById('flappyCanvas');
+        const ctx = canvas.getContext('2d');
+        const startButton = document.getElementById('startButton');
+        const scoreDisplay = document.getElementById('currentScore');
+
+        // Images
+        const birdImg = new Image(); birdImg.src = 'https://i.ibb.co/2N2R139/bird.png'; // Намунаи расми парранда
+        const bgImg = new Image(); bgImg.src = 'https://i.ibb.co/gdnQ2jF/bg.png';     // Намунаи расми замина
+        const fgImg = new Image(); fgImg.src = 'https://i.ibb.co/L9Fj934/fg.png';     // Намунаи расми замин
+        const pipeNorthImg = new Image(); pipeNorthImg.src = 'https://i.ibb.co/gR207s9/pipeNorth.png'; // Намунаи расми қубури боло
+        const pipeSouthImg = new Image(); pipeSouthImg.src = 'https://i.ibb.co/j3gB7b7/pipeSouth.png'; // Намунаи расми қубури поён
+
+        // Audio
+        const fly = new Audio('https://www.soundjay.com/buttons/sounds/button-1.mp3');
+        const scoreAudio = new Audio('https://www.soundjay.com/misc/sounds/ding-1.mp3');
+
+        // Game variables
+        let bX = 10; let bY = 150; let gravity = 1.5; let gap = 85; let constant;
+        let score = 0; let pipes = [];
+        pipes[0] = { x: canvas.width, y: 0 };
+        let gameActive = false;
+
+        function draw() {
+            if (!gameActive) return;
+
+            ctx.drawImage(bgImg, 0, 0);
+
+            for(let i = 0; i < pipes.length; i++) {
+                constant = pipeNorthImg.height + gap;
+                ctx.drawImage(pipeNorthImg, pipes[i].x, pipes[i].y);
+                ctx.drawImage(pipeSouthImg, pipes[i].x, pipes[i].y + constant);
+               
+                pipes[i].x -= 1;
+
+                if( pipes[i].x == 125 ) {
+                    pipes.push({
+                        x : canvas.width,
+                        y : Math.floor(Math.random()*pipeNorthImg.height)-pipeNorthImg.height
+                    }); 
+                }
+
+                // detect collision
+                if( bX + birdImg.width >= pipes[i].x && bX <= pipes[i].x + pipeNorthImg.width && (bY <= pipes[i].y + pipeNorthImg.height || bY + birdImg.height >= pipes[i].y+constant) || bY + birdImg.height >=  canvas.height - fgImg.height){
+                    location.reload(); // reload the page to restart
+                }
+
+                if(pipes[i].x == 5){
+                    score++;
+                    scoreAudio.play();
+                    scoreDisplay.innerText = score;
+                }
+            }
+
+            ctx.drawImage(fgImg, 0, canvas.height - fgImg.height);
+            ctx.drawImage(birdImg, bX, bY);
+
+            bY += gravity;
+            requestAnimationFrame(draw);
+        }
+
+        function moveUp() {
+            if (!gameActive) return;
+            bY -= 25;
+            fly.play();
+        }
+
+        startButton.addEventListener('click', startGame);
+        canvas.addEventListener('click', moveUp);
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && gameActive) {
+                moveUp();
+            }
+        });
+
+        function startGame() {
+            startButton.style.display = 'none'; // Hide start button
+            score = 0;
+            scoreDisplay.innerText = score;
+            bX = 10; bY = 150; 
+            pipes = [];
+            pipes[0] = { x: canvas.width, y: 0 };
+            gameActive = true;
+            draw();
+        }
+
+        // Initially draw background and button
+        function initGame() {
+            ctx.drawImage(bgImg, 0, 0);
+            ctx.drawImage(fgImg, 0, canvas.height - fgImg.height);
+            ctx.drawImage(birdImg, bX, bY);
+            startButton.style.display = 'block'; // Show start button
+        }
+        
+        // Ensure all images are loaded before starting
+        let assetsLoaded = 0;
+        const totalAssets = 5; // bird, bg, fg, pipeNorth, pipeSouth
+        [birdImg, bgImg, fgImg, pipeNorthImg, pipeSouthImg].forEach(img => {
+            img.onload = () => {
+                assetsLoaded++;
+                if (assetsLoaded === totalAssets) {
+                    initGame();
+                }
+            };
+        });
+
+        // Fallback for image loading errors (optional but good practice)
+        birdImg.onerror = bgImg.onerror = fgImg.onerror = pipeNorthImg.onerror = pipeSouthImg.onerror = () => {
+            console.error("Failed to load an image asset.");
+            // Handle error, e.g., display a message or use default assets
+        };
+
+    </script>
+</body>
+</html>
