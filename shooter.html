@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Shooter - Telegram</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        #crosshair {
+            position: absolute; top: 50%; left: 50%;
+            width: 20px; height: 20px;
+            border: 2px solid lime; border-radius: 50%;
+            transform: translate(-50%, -50%); pointer-events: none;
+        }
+        #info {
+            position: absolute; bottom: 20px; left: 20px;
+            color: white; font-family: sans-serif; background: rgba(0,0,0,0.5); padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="crosshair"></div>
+    <div id="info">Ҳаракат: W,A,S,D | Тир: Mouse Click | Камера: Mouse Move</div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer, player, moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let bullets = [];
+
+        init();
+        animate();
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x222222);
+            scene.fog = new THREE.Fog(0x222222, 0, 50);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Нури равшанӣ
+            const light = new THREE.HemisphereLight(0xeeeeee, 0x888888, 1);
+            scene.add(light);
+
+            // Замин (Floor)
+            const floorGeo = new THREE.PlaneGeometry(100, 100);
+            const floorMat = new THREE.MeshPhongMaterial({ color: 0x555555 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+            // Деворҳо ва монеаҳо (Душманони сунъӣ)
+            for(let i=0; i<20; i++) {
+                let boxGeo = new THREE.BoxGeometry(2, 4, 2);
+                let boxMat = new THREE.MeshPhongMaterial({ color: Math.random() * 0xffffff });
+                let box = new THREE.Mesh(boxGeo, boxMat);
+                box.position.set(Math.random()*40-20, 2, Math.random()*40-20);
+                scene.add(box);
+            }
+
+            camera.position.y = 1.6; // Баландии чашми одам
+
+            // Идоракунӣ
+            document.addEventListener('keydown', (e) => {
+                if(e.code === 'KeyW') moveForward = true;
+                if(e.code === 'KeyS') moveBackward = true;
+                if(e.code === 'KeyA') moveLeft = true;
+                if(e.code === 'KeyD') moveRight = true;
+            });
+            document.addEventListener('keyup', (e) => {
+                if(e.code === 'KeyW') moveForward = false;
+                if(e.code === 'KeyS') moveBackward = false;
+                if(e.code === 'KeyA') moveLeft = false;
+                if(e.code === 'KeyD') moveRight = false;
+            });
+
+            // Тирпарронӣ
+            window.addEventListener('mousedown', shoot);
+            
+            // Камера бо муш (Pointer Lock)
+            renderer.domElement.onclick = () => { renderer.domElement.requestPointerLock(); };
+            document.addEventListener('mousemove', (e) => {
+                if (document.pointerLockElement === renderer.domElement) {
+                    camera.rotation.y -= e.movementX * 0.002;
+                }
+            });
+            camera.rotation.order = 'YXZ';
+        }
+
+        function shoot() {
+            let bGeo = new THREE.SphereGeometry(0.1, 8, 8);
+            let bMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            let bullet = new THREE.Mesh(bGeo, bMat);
+            bullet.position.copy(camera.position);
+            
+            let direction = new THREE.Vector3();
+            camera.getWorldDirection(direction);
+            bullet.velocity = direction.clone().multiplyScalar(1);
+            
+            bullets.push(bullet);
+            scene.add(bullet);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Ҳаракат
+            let speed = 0.1;
+            let dir = new THREE.Vector3();
+            camera.getWorldDirection(dir);
+            dir.y = 0; dir.normalize();
+
+            if(moveForward) camera.position.addScaledVector(dir, speed);
+            if(moveBackward) camera.position.addScaledVector(dir, -speed);
+            
+            // Навсозии тирҳо
+            bullets.forEach((b, index) => {
+                b.position.add(b.velocity);
+                if(b.position.distanceTo(camera.position) > 50) {
+                    scene.remove(b);
+                    bullets.splice(index, 1);
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
