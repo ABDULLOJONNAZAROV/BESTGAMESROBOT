@@ -61,7 +61,7 @@
 
                 // detect collision
                 if( bX + birdImg.width >= pipes[i].x && bX <= pipes[i].x + pipeNorthImg.width && (bY <= pipes[i].y + pipeNorthImg.height || bY + birdImg.height >= pipes[i].y+constant) || bY + birdImg.height >=  canvas.height - fgImg.height){
-                    location.reload(); // reload the page to restart
+                    location.reload(); // reload the page torestart
                 }
 
                 if(pipes[i].x == 5){
